@@ -1,0 +1,10 @@
+package com.mercatus.customer.application.customer.port.in;
+
+import com.mercatus.customer.domain.customer.Customer;
+
+import java.util.UUID;
+
+public interface SetDefaultAddressUseCase {
+
+    Customer setDefault(UUID customerId, UUID addressId);
+}
