@@ -9,6 +9,7 @@ import com.mercatus.customer.application.exception.StateConflictException;
 import com.mercatus.customer.domain.customer.Customer;
 import com.mercatus.customer.domain.exception.AddressNotFoundException;
 import com.mercatus.customer.domain.exception.DomainRuleException;
+import java.time.Clock;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,10 +19,12 @@ class UpdateAddressService implements UpdateAddressUseCase {
 
     private final CustomerRepository customerRepository;
     private final CustomerGateway gateway;
+    private final Clock clock;
 
-    UpdateAddressService(CustomerRepository customerRepository, CustomerGateway gateway) {
+    UpdateAddressService(CustomerRepository customerRepository, CustomerGateway gateway, Clock clock) {
         this.customerRepository = customerRepository;
         this.gateway = gateway;
+        this.clock = clock;
     }
 
     @Override
@@ -37,7 +40,8 @@ class UpdateAddressService implements UpdateAddressUseCase {
                     command.complement(),
                     command.district(),
                     command.city(),
-                    command.state());
+                    command.state(),
+                    clock.instant());
             return customerRepository.save(customer);
         } catch (AddressNotFoundException ex) {
             throw new ResourceNotFoundException(ex.getMessage());

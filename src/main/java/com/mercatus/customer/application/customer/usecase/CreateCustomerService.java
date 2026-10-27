@@ -7,6 +7,9 @@ import com.mercatus.customer.application.exception.StateConflictException;
 import com.mercatus.customer.domain.customer.Customer;
 import com.mercatus.customer.domain.exception.DomainRuleException;
 import com.mercatus.customer.domain.exception.DuplicateEmailException;
+import java.time.Clock;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,16 +17,21 @@ import org.springframework.transaction.annotation.Transactional;
 class CreateCustomerService implements CreateCustomerUseCase {
 
     private final CustomerRepository customerRepository;
+    private final Clock clock;
+    private final Supplier<UUID> identifiers;
 
-    CreateCustomerService(CustomerRepository customerRepository) {
+    CreateCustomerService(CustomerRepository customerRepository, Clock clock, Supplier<UUID> identifiers) {
         this.customerRepository = customerRepository;
+        this.clock = clock;
+        this.identifiers = identifiers;
     }
 
     @Override
     @Transactional
     public Customer create(CreateCustomerCommand command) {
         try {
-            Customer customer = Customer.create(command.name(), command.email(), command.phone());
+            Customer customer = Customer.create(
+                    identifiers.get(), command.name(), command.email(), command.phone(), clock.instant());
             if (customerRepository.existsByEmail(customer.email())) {
                 throw new StateConflictException("Customer email already exists: " + customer.email().value());
             }

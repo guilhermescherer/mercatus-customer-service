@@ -9,6 +9,7 @@ import com.mercatus.customer.domain.customer.Customer;
 import com.mercatus.customer.domain.customer.Email;
 import com.mercatus.customer.domain.exception.DomainRuleException;
 import com.mercatus.customer.domain.exception.DuplicateEmailException;
+import java.time.Clock;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,10 +19,12 @@ class UpdateCustomerService implements UpdateCustomerUseCase {
 
     private final CustomerRepository customerRepository;
     private final CustomerGateway gateway;
+    private final Clock clock;
 
-    UpdateCustomerService(CustomerRepository customerRepository, CustomerGateway gateway) {
+    UpdateCustomerService(CustomerRepository customerRepository, CustomerGateway gateway, Clock clock) {
         this.customerRepository = customerRepository;
         this.gateway = gateway;
+        this.clock = clock;
     }
 
     @Override
@@ -31,7 +34,7 @@ class UpdateCustomerService implements UpdateCustomerUseCase {
         gateway.checkVersion(customer.version(), command.expectedVersion());
         Email previousEmail = customer.email();
         try {
-            customer.update(command.name(), command.email(), command.phone());
+            customer.update(command.name(), command.email(), command.phone(), clock.instant());
             if (!customer.email().equals(previousEmail) && customerRepository.existsByEmail(customer.email())) {
                 throw new StateConflictException("Customer email already exists: " + customer.email().value());
             }

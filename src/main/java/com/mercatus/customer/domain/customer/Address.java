@@ -43,6 +43,7 @@ public class Address {
     }
 
     static Address create(
+            UUID id,
             String zipCode,
             String street,
             String number,
@@ -52,7 +53,7 @@ public class Address {
             String state,
             boolean isDefault) {
         return new Address(
-                UUID.randomUUID(),
+                id,
                 requireField(zipCode, "zipCode"),
                 requireField(street, "street"),
                 requireField(number, "number"),

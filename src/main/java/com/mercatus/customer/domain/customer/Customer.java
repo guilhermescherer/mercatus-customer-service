@@ -42,10 +42,9 @@ public class Customer {
         this.version = version;
     }
 
-    public static Customer create(String name, String email, String phone) {
-        Instant now = Instant.now();
+    public static Customer create(UUID id, String name, String email, String phone, Instant now) {
         return new Customer(
-                UUID.randomUUID(),
+                id,
                 requireName(name),
                 Email.of(email),
                 normalizePhone(phone),
@@ -69,24 +68,25 @@ public class Customer {
         return new Customer(id, name, Email.of(email), phone, status, addresses, createdAt, updatedAt, version);
     }
 
-    public void update(String name, String email, String phone) {
+    public void update(String name, String email, String phone, Instant now) {
         this.name = requireName(name);
         this.email = Email.of(email);
         this.phone = normalizePhone(phone);
-        touch();
+        touch(now);
     }
 
-    public void activate() {
+    public void activate(Instant now) {
         this.status = Status.ACTIVE;
-        touch();
+        touch(now);
     }
 
-    public void deactivate() {
+    public void deactivate(Instant now) {
         this.status = Status.INACTIVE;
-        touch();
+        touch(now);
     }
 
     public Address addAddress(
+            UUID addressId,
             String zipCode,
             String street,
             String number,
@@ -94,14 +94,16 @@ public class Customer {
             String district,
             String city,
             String state,
-            boolean asDefault) {
+            boolean asDefault,
+            Instant now) {
         boolean makeDefault = asDefault || addresses.isEmpty();
-        Address address = Address.create(zipCode, street, number, complement, district, city, state, makeDefault);
+        Address address = Address.create(
+                addressId, zipCode, street, number, complement, district, city, state, makeDefault);
         if (makeDefault) {
             clearDefaults();
         }
         addresses.add(address);
-        touch();
+        touch(now);
         return address;
     }
 
@@ -113,27 +115,28 @@ public class Customer {
             String complement,
             String district,
             String city,
-            String state) {
+            String state,
+            Instant now) {
         Address address = requireAddress(addressId);
         address.update(zipCode, street, number, complement, district, city, state);
-        touch();
+        touch(now);
         return address;
     }
 
-    public void removeAddress(UUID addressId) {
+    public void removeAddress(UUID addressId, Instant now) {
         Address address = requireAddress(addressId);
         addresses.remove(address);
         if (address.isDefault()) {
             addresses.stream().findFirst().ifPresent(Address::markDefault);
         }
-        touch();
+        touch(now);
     }
 
-    public void setDefaultAddress(UUID addressId) {
+    public void setDefaultAddress(UUID addressId, Instant now) {
         Address address = requireAddress(addressId);
         clearDefaults();
         address.markDefault();
-        touch();
+        touch(now);
     }
 
     public Optional<Address> defaultAddress() {
@@ -151,8 +154,8 @@ public class Customer {
         addresses.forEach(Address::unmarkDefault);
     }
 
-    private void touch() {
-        this.updatedAt = Instant.now();
+    private void touch(Instant now) {
+        this.updatedAt = now;
     }
 
     private static String requireName(String name) {
