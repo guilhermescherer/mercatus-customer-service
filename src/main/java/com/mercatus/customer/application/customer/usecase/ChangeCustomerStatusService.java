@@ -2,7 +2,7 @@ package com.mercatus.customer.application.customer.usecase;
 
 import com.mercatus.customer.application.customer.port.in.ChangeCustomerStatusUseCase;
 import com.mercatus.customer.application.customer.port.out.CustomerRepository;
-import com.mercatus.customer.application.customer.usecase.support.CustomerGateway;
+import com.mercatus.customer.application.customer.usecase.support.CustomerAccess;
 import com.mercatus.customer.application.exception.StateConflictException;
 import com.mercatus.customer.domain.customer.Customer;
 import java.time.Clock;
@@ -15,10 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 class ChangeCustomerStatusService implements ChangeCustomerStatusUseCase {
 
     private final CustomerRepository customerRepository;
-    private final CustomerGateway gateway;
+    private final CustomerAccess gateway;
     private final Clock clock;
 
-    ChangeCustomerStatusService(CustomerRepository customerRepository, CustomerGateway gateway, Clock clock) {
+    ChangeCustomerStatusService(CustomerRepository customerRepository, CustomerAccess gateway, Clock clock) {
         this.customerRepository = customerRepository;
         this.gateway = gateway;
         this.clock = clock;

@@ -2,7 +2,7 @@ package com.mercatus.customer.application.customer.usecase;
 
 import com.mercatus.customer.application.customer.port.in.RemoveAddressUseCase;
 import com.mercatus.customer.application.customer.port.out.CustomerRepository;
-import com.mercatus.customer.application.customer.usecase.support.CustomerGateway;
+import com.mercatus.customer.application.customer.usecase.support.CustomerAccess;
 import com.mercatus.customer.application.exception.ResourceNotFoundException;
 import com.mercatus.customer.application.exception.StateConflictException;
 import com.mercatus.customer.domain.customer.Customer;
@@ -17,10 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 class RemoveAddressService implements RemoveAddressUseCase {
 
     private final CustomerRepository customerRepository;
-    private final CustomerGateway gateway;
+    private final CustomerAccess gateway;
     private final Clock clock;
 
-    RemoveAddressService(CustomerRepository customerRepository, CustomerGateway gateway, Clock clock) {
+    RemoveAddressService(CustomerRepository customerRepository, CustomerAccess gateway, Clock clock) {
         this.customerRepository = customerRepository;
         this.gateway = gateway;
         this.clock = clock;
