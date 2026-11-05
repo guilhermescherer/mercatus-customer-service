@@ -1,7 +1,7 @@
 package com.mercatus.customer.application.customer.usecase;
 
 import com.mercatus.customer.application.customer.port.in.GetCustomerUseCase;
-import com.mercatus.customer.application.customer.usecase.support.CustomerGateway;
+import com.mercatus.customer.application.customer.usecase.support.CustomerAccess;
 import com.mercatus.customer.domain.customer.Customer;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -10,9 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 class GetCustomerService implements GetCustomerUseCase {
 
-    private final CustomerGateway gateway;
+    private final CustomerAccess gateway;
 
-    GetCustomerService(CustomerGateway gateway) {
+    GetCustomerService(CustomerAccess gateway) {
         this.gateway = gateway;
     }
 

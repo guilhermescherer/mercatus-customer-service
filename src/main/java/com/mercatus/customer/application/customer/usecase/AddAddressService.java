@@ -2,7 +2,7 @@ package com.mercatus.customer.application.customer.usecase;
 
 import com.mercatus.customer.application.customer.port.in.AddAddressUseCase;
 import com.mercatus.customer.application.customer.port.out.CustomerRepository;
-import com.mercatus.customer.application.customer.usecase.support.CustomerGateway;
+import com.mercatus.customer.application.customer.usecase.support.CustomerAccess;
 import com.mercatus.customer.application.exception.BusinessRuleException;
 import com.mercatus.customer.application.exception.StateConflictException;
 import com.mercatus.customer.domain.customer.Customer;
@@ -18,11 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 class AddAddressService implements AddAddressUseCase {
 
     private final CustomerRepository customerRepository;
-    private final CustomerGateway gateway;
+    private final CustomerAccess gateway;
     private final Clock clock;
     private final Supplier<UUID> identifiers;
 
-    AddAddressService(CustomerRepository customerRepository, CustomerGateway gateway,
+    AddAddressService(CustomerRepository customerRepository, CustomerAccess gateway,
                       Clock clock, Supplier<UUID> identifiers) {
         this.customerRepository = customerRepository;
         this.gateway = gateway;

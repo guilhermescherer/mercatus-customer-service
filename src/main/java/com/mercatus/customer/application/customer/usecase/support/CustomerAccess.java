@@ -9,11 +9,11 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 @Component
-public class CustomerGateway {
+public class CustomerAccess {
 
     private final CustomerRepository customerRepository;
 
-    public CustomerGateway(CustomerRepository customerRepository) {
+    public CustomerAccess(CustomerRepository customerRepository) {
         this.customerRepository = customerRepository;
     }
 

@@ -1,7 +1,7 @@
 package com.mercatus.customer.application.customer.usecase;
 
 import com.mercatus.customer.application.customer.port.in.ListAddressesUseCase;
-import com.mercatus.customer.application.customer.usecase.support.CustomerGateway;
+import com.mercatus.customer.application.customer.usecase.support.CustomerAccess;
 import com.mercatus.customer.domain.customer.Address;
 import java.util.List;
 import java.util.UUID;
@@ -11,9 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 class ListAddressesService implements ListAddressesUseCase {
 
-    private final CustomerGateway gateway;
+    private final CustomerAccess gateway;
 
-    ListAddressesService(CustomerGateway gateway) {
+    ListAddressesService(CustomerAccess gateway) {
         this.gateway = gateway;
     }
 
