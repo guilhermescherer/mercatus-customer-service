@@ -1,5 +1,10 @@
 package com.mercatus.customer.integration.api;
 
+import com.mercatus.customer.support.TestTokens;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.http.HttpHeaders;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -24,6 +29,11 @@ class CustomerApiIT {
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17");
 
+    @DynamicPropertySource
+    static void security(DynamicPropertyRegistry registry) {
+        TestTokens.register(registry);
+    }
+
     @LocalServerPort
     int port;
 
@@ -31,7 +41,10 @@ class CustomerApiIT {
 
     @BeforeEach
     void setUp() {
-        client = RestClient.create("http://localhost:" + port + "/api/v1");
+        client = RestClient.builder().baseUrl("http://localhost:" + port + "/api/v1")
+                .defaultHeader(HttpHeaders.AUTHORIZATION, TestTokens.bearer(
+                        TestTokens.withRoles(TestTokens.CUSTOMER, TestTokens.OPERATOR, TestTokens.ADMIN)))
+                .build();
     }
 
     private String uniqueEmail() {

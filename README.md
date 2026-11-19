@@ -1,6 +1,6 @@
 # mercatus-customer-service
 
-Microserviço dono dos dados de cliente da plataforma Mercatus: quem compra e para onde entregar. Mantém o cliente (e-mail único, status) e seus endereços, expondo a fonte de verdade por uma API REST versionada. O Order (fase futura) copia esses dados ao criar o pedido.
+Microserviço dono dos dados de cliente da plataforma Mercatus: quem compra e para onde entregar. Mantém o cliente (e-mail único, status) e seus endereços, expondo a fonte de verdade por uma API REST versionada. O Order consulta esses dados ao criar o pedido.
 
 ## Funcionalidades
 
@@ -8,12 +8,13 @@ Microserviço dono dos dados de cliente da plataforma Mercatus: quem compra e pa
 - `Address` estruturado (CEP, logradouro, número, complemento, bairro, cidade, UF, país `BR` fixo na v1), com no máximo um endereço padrão por cliente.
 - Listagem com filtros (status, texto em nome/e-mail), paginação e ordenação.
 - Optimistic locking (`@Version`) com conflito de versão → `409`.
-- Erros em Problem Details (`400`/`404`/`409`/`422`), DTOs JSON, OpenAPI local, correlation id e e-mail mascarado nos logs.
+- Erros em Problem Details (`400`/`401`/`403`/`404`/`409`/`422`/`503`), DTOs JSON, OpenAPI local, correlation id e e-mail mascarado nos logs.
 
 ## Stack
 
 - Java 25, Spring Boot 4.1 (MVC), via `mercatus-parent:1.0.0`
 - PostgreSQL + Flyway (`ddl-auto: validate`, schema é a fonte da verdade)
+- Spring Security (OAuth2 Resource Server, JWT)
 - springdoc-openapi
 - Testcontainers, JUnit Jupiter 6, ArchUnit
 
@@ -41,6 +42,7 @@ Pré-requisitos: JDK 25, Maven 3.9+, PostgreSQL 17 para executar a aplicação e
 | `CUSTOMER_DB_USER` | Usuário do banco | `mercatus` |
 | `CUSTOMER_DB_PASSWORD` | Senha do banco | `mercatus` |
 | `SERVER_PORT` | Porta HTTP, sem sobrescrita por argumento | `8080` |
+| `MERCATUS_ISSUER_URI` | Issuer dos tokens JWT (realm do Keycloak) | `http://localhost:8180/realms/mercatus` |
 | `MAVEN_USERNAME` | Usuário do GitHub Packages | — |
 | `MAVEN_PASSWORD` | Token do GitHub Packages | — |
 
@@ -57,12 +59,11 @@ Para obter o parent remoto, configure `MAVEN_USERNAME` e `MAVEN_PASSWORD` e acre
 Com os padrões de conexão do Platform:
 
 ```bash
-docker compose -f ../mercatus-platform/compose/docker-compose.yml --profile core up -d
-docker compose -f ../mercatus-platform/compose/docker-compose.yml --profile core ps
+docker compose -f ../mercatus-platform/compose/docker-compose.yml --profile core --profile security up -d --wait
 mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=8082
 ```
 
-Aguarde o PostgreSQL ficar saudável. O initdb cria `customer` somente em volume novo; para volumes existentes ou configuração personalizada, consulte o [README do Platform](../mercatus-platform/README.md). O Flyway aplica `V1__customer.sql` no start e o Hibernate valida o schema.
+O perfil `security` sobe o Keycloak, que emite os tokens aceitos pelo serviço. O initdb cria `customer` somente em volume novo; para volumes existentes ou configuração personalizada, consulte o [README do Platform](../mercatus-platform/README.md). O Flyway aplica `V1__customer.sql` no start e o Hibernate valida o schema.
 
 O exemplo usa a porta `8082` para permitir executar outros serviços ao mesmo tempo. Sem o argumento, o padrão é `8080`.
 
@@ -86,11 +87,50 @@ Exemplo de cadastro:
 
 ```bash
 curl -X POST http://localhost:8082/api/v1/customers \
+  -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"Cliente Exemplo","email":"cliente@example.com","phone":"11999999999"}'
 ```
 
-Para adicionar endereço, envie `zipCode`, `street`, `number`, `district`, `city`, `state`, `complement` opcional e `asDefault` para indicar o padrão. O país é definido como `BR` pelo domínio. Os contratos completos ficam no OpenAPI gerado pela aplicação. As operações ainda não exigem autenticação.
+Para adicionar endereço, envie `zipCode`, `street`, `number`, `district`, `city`, `state`, `complement` opcional e `asDefault` para indicar o padrão. O país é definido como `BR` pelo domínio. Os contratos completos ficam no OpenAPI gerado pela aplicação.
+
+## Segurança
+
+Toda rota exige `Authorization: Bearer <token>`, exceto `GET /ping`,
+`/actuator/health`, `/actuator/info` e o OpenAPI (`/v3/api-docs`, `/swagger-ui`).
+O token é um JWT do realm `mercatus` do Keycloak: o serviço confere assinatura
+(chaves públicas do realm, obtidas em `<issuer>/protocol/openid-connect/certs` e
+mantidas em cache), issuer e validade, e lê os papéis de `realm_access.roles`.
+
+| Método e rota | Papéis |
+|---|---|
+| `POST /customers` | `CUSTOMER` |
+| `GET /customers` | `OPERATOR` |
+| `GET /customers/{id}` | `CUSTOMER`, `OPERATOR`, `SERVICE` |
+| `PUT /customers/{id}` | `CUSTOMER` |
+| `POST /customers/{id}:activate`, `:deactivate` | `ADMIN` |
+| `GET /customers/{id}/addresses` | `CUSTOMER`, `OPERATOR` |
+| `POST`/`PUT`/`DELETE` em endereços, `PUT .../default` | `CUSTOMER` |
+
+`ADMIN` é composto no realm e inclui `OPERATOR`; `SERVICE` é o papel da conta de
+serviço do Order. Qualquer outra rota é negada. Sem token ou com token inválido,
+expirado ou de outro issuer, a resposta é `401` com `WWW-Authenticate: Bearer`;
+papel sem permissão recebe `403`; se o token não puder ser verificado porque as
+chaves do Keycloak estão inacessíveis, `503`. Todas em Problem Details e com
+`X-Correlation-Id`. O serviço inicia mesmo com o Keycloak fora do ar.
+
+Os papéis controlam o tipo de operação, não o dono do dado: um token `CUSTOMER`
+ainda alcança o cadastro de outro cliente pelo id.
+
+Para obter um token de cliente no Keycloak local:
+
+```bash
+TOKEN=$(curl -s http://localhost:8180/realms/mercatus/protocol/openid-connect/token \
+  -d grant_type=password -d client_id=mercatus-cli -d username=customer1 -d password=customer1 \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+```
+
+Os usuários de teste e os clientes do realm estão no [README do Platform](../mercatus-platform/README.md).
 
 ## Modelagem e regras
 
@@ -107,7 +147,9 @@ mvn test     # unitários (surefire): domínio + ArchUnit
 mvn verify   # unitários + integração (failsafe, Testcontainers)
 ```
 
-Cobrem: validação/normalização de e-mail, endereço padrão único, transições de status, mascaramento de e-mail; e, via Testcontainers, e-mail duplicado case-insensitive → 409, troca de endereço padrão, ativar/desativar, conflito de versão → 409, filtros + paginação e cliente inexistente → 404.
+Cobrem: validação/normalização de e-mail, endereço padrão único, transições de status, mascaramento de e-mail; e, via Testcontainers, e-mail duplicado case-insensitive → 409, troca de endereço padrão, ativar/desativar, conflito de versão → 409, filtros + paginação e cliente inexistente → 404. `CustomerSecurityIT` cobre rotas públicas, ausência de token, token malformado, assinado por chave desconhecida, expirado e de outro issuer, `403` por papel, rotas sem regra e a matriz de papéis por endpoint; `CustomerIdentityProviderOutageIT`, o serviço com o Keycloak inacessível (`401` sem token, `503` com token).
+
+Os testes de integração não usam o Keycloak: `TestTokens` gera um par de chaves RSA em memória a cada execução, assina os JWTs e publica a chave pública num servidor HTTP local, no mesmo formato JWKS do Keycloak; o serviço é apontado para ele por `jwk-set-uri`, mantendo a validação de issuer. Nenhuma chave é versionada.
 
 Os testes de integração iniciam PostgreSQL 17 em containers próprios; o Compose não precisa estar iniciado. `mvn test` não substitui a validação de banco de `mvn verify`, que exige Docker acessível.
 
